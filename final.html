@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AEGIS ULTRA | Tactical Command</title>
+    <style>
+        :root { --neon: #00ff41; --navy: #131921; --orange: #febd69; --threat: #ff4444; }
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #nav-bar { position: fixed; top: 0; width: 100%; height: 60px; background: var(--navy); display: none; align-items: center; padding: 0 20px; z-index: 1000; border-bottom: 2px solid var(--neon); box-sizing: border-box; }
+        .nav-logo { font-weight: bold; font-size: 1.4em; color: var(--neon); letter-spacing: 2px; }
+        
+        #login-overlay { position: fixed; inset: 0; z-index: 2000; background: #000428; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: rgba(255, 255, 255, 0.05); padding: 50px; border: 1px solid var(--neon); border-radius: 15px; text-align: center; }
+        
+        #home-page {
+            position: fixed; inset: 0; z-index: 1500; background: #000428; overflow-y: auto;
+            display: none; flex-direction: column; align-items: center; padding: 40px 20px;
+        }
+        .info-container {
+            max-width: 900px; background: rgba(19, 25, 33, 0.9); border: 1px solid var(--neon);
+            padding: 40px; border-radius: 8px; margin-bottom: 20px; line-height: 1.6;
+        }
+        .info-container h2 { color: var(--orange); border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 30px; }
+        .info-container h1 { color: var(--neon); font-size: 2.5em; text-align: center; letter-spacing: 4px; margin-top: 0; }
+        .info-container img { max-width: 100%; border: 1px solid #555; margin: 20px 0; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .launch-btn {
+            background: var(--neon); color: #000; font-weight: bold; padding: 15px 40px;
+            font-size: 1.2em; border: none; cursor: pointer; border-radius: 4px; transition: 0.2s;
+            box-shadow: 0 0 15px var(--neon); margin-top: 20px; margin-bottom: 40px;
+        }
+        .launch-btn:hover { background: white; box-shadow: 0 0 25px white; }
+
+        .hud { position: absolute; z-index: 100; background: rgba(19, 25, 33, 0.9); border: 1px solid var(--neon); padding: 20px; display: none; }
+        #target-panel { right: 20px; top: 80px; width: 300px; }
+        
+        #threat-panel { left: 20px; top: 80px; width: 320px; border-color: var(--threat); transition: all 0.3s ease; max-height: 50vh; overflow-y: auto; }
+        .threat-item { padding: 10px; margin-top: 5px; background: rgba(255, 68, 68, 0.1); border-left: 4px solid var(--threat); cursor: pointer; transition: all 0.3s ease; }
+        .threat-item:hover { background: rgba(255, 68, 68, 0.3); }
+        .panic-alert { color: var(--threat); font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        #system-controls { left: 20px; bottom: 20px; width: 320px; border-color: #555; }
+        
+        .thrust-btn { background: linear-gradient(45deg, #ff4e00, #ec9f05); border: none; color: white; width: 100%; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 4px; transition: transform 0.1s; }
+        .thrust-btn:active { transform: scale(0.95); }
+        .pov-btn { background: #333; border: 1px solid var(--neon); color: var(--neon); width: 100%; padding: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 4px; }
+        .maneuver-box { margin-top: 15px; background: rgba(0,0,0,0.6); padding: 15px; border: 1px solid var(--neon); border-radius: 4px; display: none; }
+        select { width: 100%; padding: 8px; background: #222; color: white; border: 1px solid #555; margin-bottom: 8px; outline: none; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: var(--threat); border-radius: 4px; }
+
+        #burn-overlay {
+            position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
+            width: 450px; background: rgba(0,0,0,0.85); border: 2px solid var(--orange);
+            padding: 20px; border-radius: 8px; text-align: center; display: none;
+            z-index: 1000; box-shadow: 0 0 20px rgba(254, 189, 105, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-card">
+            <h1 style="color: var(--neon); letter-spacing: 10px;">AEGIS</h1>
+            <input type="text" id="user" placeholder="COMMANDER ID" value="admin" style="display:block; margin: 10px auto; padding: 10px; width: 80%;">
+            <input type="password" id="pass" placeholder="SECURITY KEY" value="aegis2026" style="display:block; margin: 10px auto; padding: 10px; width: 80%;">
+            <button onclick="handleAuth()" style="background: var(--neon); border:none; padding: 15px 30px; cursor:pointer; font-weight: bold;">INITIATE NEURAL LINK</button>
+        </div>
+    </div>
+
+    <div id="home-page">
+        <div class="info-container">
+            <h1>AEGIS ORBITAL DEFENSE</h1>
+            <p style="font-size: 1.1em; text-align: center; color: #ccc;">Advanced Early-Warning Guard & Interception System</p>
+            
+            <h2>Mission Parameters</h2>
+            <p>Welcome, Commander. The AEGIS program is designed to monitor, track, and secure our orbital infrastructure against the growing threat of Kessler Syndrome. Space is congested, and high-velocity debris poses an existential threat to satellite constellations. Your objective is to monitor the live feed, identify collision threats, and execute emergency avoidance maneuvers.</p>
+
+            <h2>Orbital Trajectories & Post-Collision Physics</h2>
+            <p>Satellites travel at roughly 7.8 km/s in Low Earth Orbit. A collision at these speeds does not merely destroy a spacecraft—it generates a massive cloud of lethal shrapnel. As shown in the schematic below, upon the point of collision, the original trajectory of the debris and the spacecraft diverge heavily, casting high-speed fragments outward. These fragments remain in orbit, creating cascading threat vectors for all other active assets.</p>
+            
+            <div style="text-align: center;">
+                <img src="image_2afbc3.jpg" alt="Satellite Collision Trajectories" />
+            </div>
+
+            <h2>Threat Assessment & Maneuver Pipeline</h2>
+            <p>The AEGIS backend utilizes a robust Real-time Maneuver Detection algorithm. The system ingests raw TLE (Two-Line Element) orbital data to predict paths and generate tasking protocols. If a threat assessment flags an impending strike, the system shifts tracking assets pre-maneuver to observe the satellite. Once you execute a burn (Prograde, Retrograde, or Plane Shift), the mass estimation and tracking pipelines verify the successful adjustment post-maneuver.</p>
+
+            <div style="text-align: center;">
+                <img src="image_2afbc8.jpg" alt="Maneuver Detection Pipeline" />
+            </div>
+            
+            <p style="text-align: center; color: var(--threat); font-weight: bold; margin-top: 30px;">WARNING: LIVE ORBITAL TRACKING ENGAGED.</p>
+        </div>
+        
+        <button class="launch-btn" onclick="launchSim()">LAUNCH TACTICAL INTERFACE</button>
+    </div>
+
+    <nav id="nav-bar">
+        <div class="nav-logo">AEGIS ULTRA</div>
+        <div style="flex-grow:1"></div>
+        <div style="color: var(--threat); cursor:pointer" onclick="location.reload()">LOGOUT</div>
+    </nav>
+
+    <div id="burn-overlay">
+        <h3 id="burn-text" style="margin: 0 0 15px 0; color: var(--orange); font-size: 1.3em; letter-spacing: 2px; text-transform: uppercase;">EXECUTING MANEUVER</h3>
+        <div style="width: 100%; height: 12px; background: #222; border-radius: 6px; overflow: hidden; border: 1px solid #444;">
+            <div id="burn-bar" style="width: 0%; height: 100%; background: var(--orange); transition: width 3s linear; box-shadow: 0 0 10px var(--orange);"></div>
+        </div>
+    </div>
+
+    <div id="threat-panel" class="hud">
+        <h3 id="threat-header">COLLISION DETECTION PANEL</h3>
+        <div id="threat-list"></div>
+    </div>
+
+    <div id="target-panel" class="hud">
+        <h3 id="sat-name">NO TARGET</h3>
+        <p id="sat-info">Select satellite for lock.</p>
+        <button id="pov-btn" class="pov-btn" style="display:none;" onclick="togglePOV()">🎥 ENGAGE SATELLITE POV</button>
+        
+        <div id="maneuver-controls" class="maneuver-box">
+            <div style="font-size: 0.8em; color: var(--neon); margin-bottom: 5px;">TACTICAL OPTIONS:</div>
+            <select id="maneuver-select">
+                <option value="prograde">🚀 Prograde Burn (+Altitude)</option>
+                <option value="retrograde">📉 Retrograde Burn (-Altitude)</option>
+                <option value="plane">🔄 Plane Shift (Angle Adjustment)</option>
+            </select>
+            <div id="maneuver-rec" style="font-size: 0.75em; color: var(--orange); margin-bottom: 10px; font-weight: bold;">AI RECOMMENDATION: Prograde Burn</div>
+            <button class="thrust-btn" onclick="execThrust()">🔥 EXECUTE MANEUVER</button>
+        </div>
+    </div>
+
+    <div id="system-controls" class="hud">
+        <h3 style="margin-top: 0; color: #ccc;">SYSTEM CONTROLS</h3>
+        <button class="thrust-btn" style="background: #333; color: white;" onclick="resetView()">🌍 RESET VIEW</button>
+        <button class="thrust-btn" style="background: #880000; color: white;" onclick="fakeCollision()">💥 FAKE COLLISION</button>
+        <button class="thrust-btn" style="background: #0055aa; color: white;" onclick="verifyBackend()">📡 VERIFY BACKEND</button>
+        <div id="backend-status" style="margin-top: 15px; font-size: 0.85em; color: var(--neon); text-align: center; font-weight: bold;">AWAITING PING...</div>
+    </div>
+
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" }}</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls, earth;
+        const satelliteMeshes = new Map();
+        let activeThreatLasers = [];
+        let visualExplosionFragments = []; 
+        let driftingHulks = []; 
+        let interceptTask = null; 
+        const SCALE = 5 / 6371; 
+        
+        const clock = new THREE.Clock();
+        let selectedSat = null;
+        let isPOV = false;
+
+        window.handleAuth = () => {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('home-page').style.display = 'flex';
+        };
+
+        window.launchSim = () => {
+            document.getElementById('home-page').style.display = 'none';
+            document.getElementById('nav-bar').style.display = 'flex';
+            document.querySelectorAll('.hud').forEach(el => el.style.display = 'block');
+            initAegis();
+        };
+
+        window.togglePOV = () => {
+            if(!selectedSat) return;
+            isPOV = !isPOV;
+            controls.enabled = !isPOV;
+            const btn = document.getElementById('pov-btn');
+            if(isPOV) {
+                btn.innerText = "🛑 DISENGAGE POV";
+                btn.style.background = "#ff4444";
+                btn.style.color = "white";
+                btn.style.borderColor = "#ff4444";
+            } else {
+                btn.innerText = "🎥 ENGAGE SATELLITE POV";
+                btn.style.background = "#333";
+                btn.style.color = "#00ff41";
+                btn.style.borderColor = "#00ff41";
+            }
+        };
+
+        window.resetView = () => {
+            selectedSat = null;
+            isPOV = false;
+            controls.enabled = true;
+            
+            document.getElementById('pov-btn').style.display = 'none';
+            document.getElementById('maneuver-controls').style.display = 'none';
+            document.getElementById('sat-name').innerText = "NO TARGET";
+            
+            camera.position.set(15, 10, 15);
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            satelliteMeshes.forEach(s => {
+                const aura = s.children.find(ch => ch.name === "aura");
+                if (aura && !s.userData.name.includes("FRAG")) aura.material.color.setHex(0x00ff41);
+            });
+        };
+
+        window.fakeCollision = () => {
+            if (interceptTask) return; 
+
+            const btn = document.querySelector('button[onclick="fakeCollision()"]');
+            
+            let v1 = selectedSat;
+            const allActive = Array.from(satelliteMeshes.values()).filter(s => s.visible && !s.userData.destroyedLocal);
+            
+            if (!v1) {
+                v1 = allActive[Math.floor(Math.random() * allActive.length)];
+            }
+            
+            const possibleV2 = allActive.filter(s => s !== v1);
+            if (possibleV2.length === 0) return;
+            let v2 = possibleV2[Math.floor(Math.random() * possibleV2.length)];
+
+            v2.userData.isIntercepting = true;
+            interceptTask = { v1, v2 };
+            
+            btn.innerText = "💥 INTERCEPTING...";
+            btn.style.background = "#ff0000";
+        };
+
+        window.triggerBackendCollision = async (t1, t2) => {
+            try {
+                const res = await fetch(`http://127.0.0.1:5000/api/fake-collision/${encodeURIComponent(t1)}/${encodeURIComponent(t2)}`);
+                const data = await res.json();
+                if(data.victim) {
+                    if (selectedSat && (selectedSat.userData.name === t1 || selectedSat.userData.name === t2)) {
+                        document.getElementById('sat-name').innerText = "TARGET DESTROYED IN COLLISION";
+                        document.getElementById('sat-name').style.color = "var(--threat)";
+                        document.getElementById('maneuver-controls').style.display = 'none';
+                    }
+                    syncOrbits(); 
+                }
+            } catch (e) {
+                console.error("Collision simulation failed", e);
+            }
+        };
+
+        window.verifyBackend = async () => {
+            const statusDiv = document.getElementById('backend-status');
+            statusDiv.innerText = "PINGING SERVER...";
+            statusDiv.style.color = "var(--orange)";
+            
+            try {
+                const res = await fetch('http://127.0.0.1:5000/api/orbital-data');
+                if(res.ok) {
+                    statusDiv.innerText = "✅ BACKEND CONNECTED & SYNCING";
+                    statusDiv.style.color = "var(--neon)";
+                } else {
+                    statusDiv.innerText = "❌ BACKEND ERROR";
+                    statusDiv.style.color = "var(--threat)";
+                }
+            } catch (e) {
+                statusDiv.innerText = "❌ SERVER DISCONNECTED";
+                statusDiv.style.color = "var(--threat)";
+            }
+        };
+
+        function createSatMesh(isDebris = false, pos = null, vel = null) {
+            const group = new THREE.Group();
+            
+            if (isDebris) {
+                const body = new THREE.Mesh(new THREE.DodecahedronGeometry(0.06), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xaa0000, roughness: 0.5 }));
+                body.name = "body";
+                group.add(body);
+                
+                const aura = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending }));
+                aura.name = "aura"; 
+                group.add(aura);
+            } else {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+                body.name = "body";
+                group.add(body);
+                
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.005, 0.04), new THREE.MeshStandardMaterial({ color: 0x00f2ff, emissive: 0x0055aa, emissiveIntensity: 0.5 }));
+                panel.name = "panel";
+                group.add(panel);
+                
+                const aura = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ff41, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending }));
+                aura.name = "aura"; 
+                group.add(aura);
+                
+                const exhaust = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.15, 8), new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.9 }));
+                exhaust.position.set(0, 0, 0.06); 
+                exhaust.rotation.x = Math.PI / 2;
+                exhaust.name = "thrust";
+                exhaust.visible = false;
+                group.add(exhaust);
+            }
+            return group;
+        }
+
+        function triggerExplosion(position) {
+            const waveGeom = new THREE.SphereGeometry(0.05, 32, 32);
+            const waveMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 1.0 });
+            const wave = new THREE.Mesh(waveGeom, waveMat);
+            wave.position.copy(position);
+            scene.add(wave);
+            visualExplosionFragments.push({ mesh: wave, type: 'wave', life: 1.0 });
+
+            for(let i=0; i < 30; i++) {
+                const size = 0.005 + Math.random() * 0.01;
+                const frag = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+                frag.position.copy(position);
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 4,
+                    (Math.random() - 0.5) * 4,
+                    (Math.random() - 0.5) * 4
+                ).normalize().multiplyScalar(1.0 + Math.random() * 2.0);
+                scene.add(frag);
+                visualExplosionFragments.push({ mesh: frag, vel: velocity, type: 'spark', life: 0.5 + Math.random() });
+            }
+        }
+
+        function turnIntoDeadHulk(satGroup) {
+            const body = satGroup.children.find(ch => ch.name === "body");
+            if (body) body.material = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1.0 }); 
+
+            const partsToRemove = ["panel", "aura", "thrust"];
+            for (let i = satGroup.children.length - 1; i >= 0; i--) {
+                const child = satGroup.children[i];
+                if (partsToRemove.includes(child.name)) {
+                    satGroup.remove(child);
+                    if(child.geometry) child.geometry.dispose();
+                    if(child.material) child.material.dispose();
+                }
+            }
+
+            if (satGroup.userData.trail) scene.remove(satGroup.userData.trail);
+            driftingHulks.push(satGroup);
+        }
+
+        function initAegis() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+            camera.position.set(15, 10, 15);
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            
+            const tex = new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
+            earth = new THREE.Mesh(new THREE.SphereGeometry(5, 64, 64), new THREE.MeshStandardMaterial({ map: tex }));
+            scene.add(earth);
+            
+            scene.add(new THREE.DirectionalLight(0xffffff, 2.5));
+            scene.add(new THREE.AmbientLight(0x404040, 1.5));
+            
+            syncOrbits();
+            setInterval(syncOrbits, 2000); 
+            animate();
+            
+            setTimeout(verifyBackend, 1500);
+        }
+
+        function focusOnSatellite(satMesh) {
+            if(selectedSat) {
+                const oldAura = selectedSat.children.find(ch => ch.name === "aura");
+                if(oldAura && !selectedSat.userData.name.includes("FRAG")) oldAura.material.color.setHex(0x00ff41);
+            }
+            
+            selectedSat = satMesh;
+            document.getElementById('sat-name').innerText = selectedSat.userData.name || "UNKNOWN DEBRIS";
+            document.getElementById('sat-name').style.color = "white";
+            document.getElementById('pov-btn').style.display = 'block';
+            
+            if(selectedSat.userData.name && !selectedSat.userData.name.includes("FRAG") && selectedSat.visible) {
+                document.getElementById('maneuver-controls').style.display = 'block';
+                document.getElementById('maneuver-select').value = 'prograde';
+            } else {
+                document.getElementById('maneuver-controls').style.display = 'none'; 
+            }
+
+            const a = selectedSat.children.find(ch => ch.name === "aura");
+            if(a) a.material.color.setHex(0xfebd69);
+        }
+
+        async function syncOrbits() {
+            try {
+                const res = await fetch('http://127.0.0.1:5000/api/orbital-data');
+                const data = await res.json();
+                
+                if (data.destroyed && data.destroyed.length > 0) {
+                    data.destroyed.forEach(dName => {
+                        if (satelliteMeshes.has(dName)) {
+                            const deadSat = satelliteMeshes.get(dName);
+                            if(deadSat.visible && !deadSat.userData.destroyedLocal) {
+                                triggerExplosion(deadSat.position.clone());
+                                turnIntoDeadHulk(deadSat);
+                            }
+                            satelliteMeshes.delete(dName);
+                            if (selectedSat === deadSat) {
+                                document.getElementById('sat-name').innerText = "TARGET DESTROYED IN COLLISION";
+                                document.getElementById('sat-name').style.color = "var(--threat)";
+                                document.getElementById('pov-btn').style.display = 'none';
+                                document.getElementById('maneuver-controls').style.display = 'none';
+                            }
+                        }
+                    });
+                }
+
+                data.satellites.forEach(sat => {
+                    const pos = new THREE.Vector3(sat.position.x * SCALE, sat.position.z * SCALE, sat.position.y * SCALE);
+                    const vel = new THREE.Vector3(sat.velocity.vx * SCALE, sat.velocity.vz * SCALE, sat.velocity.vy * SCALE);
+                    
+                    if(!satelliteMeshes.has(sat.name)) {
+                        const isDebris = sat.name.includes("FRAG");
+                        const group = createSatMesh(isDebris, pos, vel);
+                        group.position.copy(pos);
+                        
+                        group.userData = { 
+                            name: sat.name, 
+                            truePos: pos.clone(), 
+                            vel: vel.clone(),
+                            axis: new THREE.Vector3().crossVectors(pos, vel).normalize(),
+                            destroyedLocal: false
+                        };
+                        scene.add(group);
+                        satelliteMeshes.set(sat.name, group);
+                    } else {
+                        const s = satelliteMeshes.get(sat.name);
+                        
+                        if (!s.userData.isIntercepting && s.userData.truePos.distanceTo(pos) > 0.5) {
+                            s.userData.truePos.copy(pos);
+                        }
+                        
+                        s.userData.vel.lerp(vel, 0.5);
+                        s.userData.axis.copy(new THREE.Vector3().crossVectors(s.userData.truePos, s.userData.vel).normalize());
+                    }
+                });
+
+                activeThreatLasers.forEach(t => { scene.remove(t.line); t.line.geometry.dispose(); t.line.material.dispose(); });
+                activeThreatLasers = []; 
+
+                const threatList = document.getElementById('threat-list');
+                const header = document.getElementById('threat-header');
+                
+                if(!threatList.getAttribute('data-locked')) {
+                    threatList.innerHTML = '';
+                    if (data.collisions && data.collisions.length > 0) {
+                        header.className = 'panic-alert';
+                        header.innerText = `⚠️ COLLISION DETECTED (${data.collisions.length} THREATS)`;
+                        data.collisions.forEach(c => {
+                            const div = document.createElement('div');
+                            div.className = 'threat-item';
+                            let tcaText = c.tca === "IMMINENT" ? "IMMINENT" : `T-MINUS ${c.tca}s`;
+                            
+                            if(c.satellite_1.includes("FRAG") || c.satellite_2.includes("FRAG")) {
+                                div.style.background = "rgba(255, 68, 68, 0.3)"; 
+                                div.style.borderLeftColor = "#ff0000";
+                            }
+
+                            div.innerHTML = `RISK: ${(c.risk_score * 100).toFixed(0)}% | ${c.satellite_1}<br><span style="color:var(--orange); font-size: 0.85em; font-weight: bold;">⏱️ IMPACT: ${tcaText}</span>`;
+                            div.onclick = () => {
+                                const target = satelliteMeshes.get(c.satellite_1);
+                                if(target) focusOnSatellite(target);
+                            };
+                            threatList.appendChild(div);
+                            
+                            if(satelliteMeshes.has(c.satellite_1) && satelliteMeshes.has(c.satellite_2) && !c.satellite_1.includes("FRAG") && !c.satellite_2.includes("FRAG")) {
+                                const s1 = satelliteMeshes.get(c.satellite_1);
+                                const s2 = satelliteMeshes.get(c.satellite_2);
+                                
+                                const curvePoints = new THREE.QuadraticBezierCurve3(s1.position, s1.position, s2.position).getPoints(20);
+                                const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curvePoints), new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.8, linewidth: 2 }));
+                                scene.add(line);
+                                activeThreatLasers.push({ s1: s1, s2: s2, line: line });
+                            }
+                        });
+                    } else {
+                        header.className = '';
+                        header.innerText = '🛡️ SYSTEM NOMINAL';
+                    }
+                }
+            } catch(e) { console.error("Link Failure", e); }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const TIME_WARP = 50.0;
+            const trueDelta = clock.getDelta();
+            const dt = trueDelta * TIME_WARP; 
+
+            const activeSats = [];
+            const activeFrags = [];
+
+            if (interceptTask) {
+                const {v1, v2} = interceptTask;
+                if (v1 && v2 && v1.visible && v2.visible) {
+                    const dist = v2.position.distanceTo(v1.position);
+                    if (dist < 0.6) { 
+                        v1.userData.destroyedLocal = true;
+                        v2.userData.destroyedLocal = true;
+                        triggerExplosion(v1.position.clone());
+                        triggerExplosion(v2.position.clone());
+                        turnIntoDeadHulk(v1);
+                        turnIntoDeadHulk(v2);
+
+                        triggerBackendCollision(v1.userData.name, v2.userData.name);
+                        interceptTask = null;
+                        const btn = document.querySelector('button[onclick="fakeCollision()"]');
+                        btn.innerText = "💥 FAKE COLLISION";
+                        btn.style.background = "#880000";
+                    } else {
+                        const dir = new THREE.Vector3().subVectors(v1.position, v2.position).normalize();
+                        v2.position.add(dir.multiplyScalar(trueDelta * 25.0)); 
+                        v2.userData.truePos.copy(v2.position);
+                    }
+                } else {
+                    interceptTask = null;
+                    const btn = document.querySelector('button[onclick="fakeCollision()"]');
+                    btn.innerText = "💥 FAKE COLLISION";
+                    btn.style.background = "#880000";
+                }
+            }
+            
+            satelliteMeshes.forEach(s => {
+                const v = s.userData.vel;
+                const p = s.userData.truePos;
+                
+                const exhaust = s.children.find(c => c.name === 'thrust');
+                if (exhaust && exhaust.visible) {
+                    exhaust.scale.setScalar(1.0 + Math.random() * 0.8);
+                    exhaust.material.opacity = 0.5 + Math.random() * 0.5;
+                    
+                    if (s.userData.targetRadius) {
+                        const currentRadius = p.length();
+                        const diff = s.userData.targetRadius - currentRadius;
+                        p.setLength(currentRadius + diff * 0.02);
+                    }
+                } else if (s.userData.targetRadius) {
+                    delete s.userData.targetRadius;
+                }
+
+                if (p && v && s.visible && !s.userData.isIntercepting && !s.userData.destroyedLocal) { 
+                    
+                    const radius = p.length();
+                    const speed = v.length();
+                    if (radius > 0 && speed > 0) {
+                        const speedMultiplier = s.userData.name.includes("FRAG") ? 1.5 : 1.0; 
+                        const angularVel = (speed / radius) * speedMultiplier;
+                        
+                        p.applyAxisAngle(s.userData.axis, angularVel * dt);
+                    }
+                    s.position.copy(p); 
+                    
+                    if (!s.userData.name.includes("FRAG")) {
+                        const futurePos = p.clone().applyAxisAngle(s.userData.axis, 0.01);
+                        s.lookAt(futurePos); 
+                        activeSats.push(s);
+                    } else {
+                        activeFrags.push(s);
+                    }
+                }
+            });
+
+            // 1. Check Satellites vs Debris
+            for(let i=0; i<activeSats.length; i++) {
+                const sat = activeSats[i];
+                for(let j=0; j<activeFrags.length; j++) {
+                    const frag = activeFrags[j];
+                    
+                    if(sat.position.distanceTo(frag.position) < 0.3) {
+                        sat.userData.destroyedLocal = true;
+                        frag.userData.destroyedLocal = true;
+                        triggerExplosion(sat.position.clone());
+                        turnIntoDeadHulk(sat);
+                        turnIntoDeadHulk(frag);
+                        triggerBackendCollision(sat.userData.name, frag.userData.name);
+                        break; 
+                    }
+                }
+            }
+
+            // 2. Check Debris vs Debris (Kessler Cascade Effect)
+            for(let i=0; i<activeFrags.length; i++) {
+                const frag1 = activeFrags[i];
+                if(frag1.userData.destroyedLocal) continue;
+                
+                for(let j=i+1; j<activeFrags.length; j++) {
+                    const frag2 = activeFrags[j];
+                    if(frag2.userData.destroyedLocal) continue;
+                    
+                    // FIX: Extremely tight local hitbox so they don't immediately annihilate each other
+                    if(frag1.position.distanceTo(frag2.position) < 0.02) { 
+                        frag1.userData.destroyedLocal = true;
+                        frag2.userData.destroyedLocal = true;
+                        triggerExplosion(frag1.position.clone());
+                        turnIntoDeadHulk(frag1);
+                        turnIntoDeadHulk(frag2);
+                        triggerBackendCollision(frag1.userData.name, frag2.userData.name);
+                        break; 
+                    }
+                }
+            }
+
+            driftingHulks.forEach(hulk => {
+                const v = hulk.userData.vel;
+                if(v) {
+                    hulk.position.x += v.x * dt;
+                    hulk.position.y += v.y * dt;
+                    hulk.position.z += v.z * dt;
+                }
+                hulk.rotation.x += 0.05 * dt;
+                hulk.rotation.y += 0.03 * dt;
+            });
+
+            for (let i = visualExplosionFragments.length - 1; i >= 0; i--) {
+                const frag = visualExplosionFragments[i];
+                if (frag.type === 'wave') {
+                    frag.mesh.scale.addScalar(trueDelta * 20);
+                    frag.life -= trueDelta * 3.0; 
+                } else if (frag.type === 'spark') {
+                    frag.mesh.position.addScaledVector(frag.vel, dt);
+                    frag.life -= trueDelta * 1.5; 
+                }
+                frag.mesh.material.opacity = Math.max(0, frag.life);
+                
+                if (frag.life <= 0) {
+                    scene.remove(frag.mesh);
+                    frag.mesh.geometry.dispose();
+                    frag.mesh.material.dispose();
+                    visualExplosionFragments.splice(i, 1);
+                }
+            }
+
+            activeThreatLasers.forEach(t => {
+                const mid = new THREE.Vector3().addVectors(t.s1.position, t.s2.position).multiplyScalar(0.5);
+                mid.normalize().multiplyScalar(t.s1.userData.truePos.length() * 1.3); 
+                const curve = new THREE.QuadraticBezierCurve3(t.s1.position, mid, t.s2.position);
+                const points = curve.getPoints(20);
+                const positions = t.line.geometry.attributes.position.array;
+                for (let i = 0; i <= 20; i++) {
+                    positions[i * 3] = points[i].x;
+                    positions[i * 3 + 1] = points[i].y;
+                    positions[i * 3 + 2] = points[i].z;
+                }
+                t.line.geometry.attributes.position.needsUpdate = true;
+            });
+
+            if(selectedSat) {
+                if (isPOV) {
+                    const radius = selectedSat.userData.truePos ? selectedSat.userData.truePos.length() : selectedSat.position.length();
+                    const offset = selectedSat.position.clone().normalize().multiplyScalar(radius + 0.8);
+                    camera.position.lerp(offset, 0.1);
+                    camera.lookAt(0, 0, 0); 
+                } else {
+                    controls.target.lerp(selectedSat.position, 0.1);
+                    controls.update();
+                }
+            } else {
+                controls.update();
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2((e.clientX/window.innerWidth)*2-1, -(e.clientY/window.innerHeight)*2+1), camera);
+            const sat = raycaster.intersectObjects(scene.children, true).find(h => h.object.parent && h.object.parent.userData.name);
+            if(sat) focusOnSatellite(sat.object.parent);
+        });
+
+        window.execThrust = async () => {
+            if(!selectedSat) return;
+            
+            const exhaust = selectedSat.children.find(c => c.name === 'thrust');
+            if(exhaust) exhaust.visible = true;
+
+            const mType = document.getElementById('maneuver-select').value;
+            
+            const SCALE = 5 / 6371;
+            let radiusOffset = 2000 * SCALE;
+            if (mType === 'retrograde') radiusOffset = -1200 * SCALE;
+            if (mType === 'plane') radiusOffset = 2500 * SCALE;
+            
+            selectedSat.userData.targetRadius = selectedSat.userData.truePos.length() + radiusOffset;
+            
+            const overlay = document.getElementById('burn-overlay');
+            const burnText = document.getElementById('burn-text');
+            const burnBar = document.getElementById('burn-bar');
+            
+            overlay.style.display = 'block';
+            overlay.style.borderColor = 'var(--orange)';
+            overlay.style.boxShadow = '0 0 20px rgba(254, 189, 105, 0.5)';
+            
+            burnText.innerText = `EXECUTING ${mType.toUpperCase()} BURN...`;
+            burnText.style.color = 'var(--orange)';
+            
+            burnBar.style.width = '0%';
+            burnBar.style.background = 'var(--orange)';
+            burnBar.style.boxShadow = '0 0 10px var(--orange)';
+            burnBar.style.transition = 'none'; 
+            
+            void burnBar.offsetWidth; 
+            
+            burnBar.style.transition = 'width 3s linear';
+            burnBar.style.width = '100%';
+
+            const res = await fetch(`http://127.0.0.1:5000/api/maneuver/${selectedSat.userData.name}/${mType}`);
+            
+            if(res.ok) {
+                const threatList = document.getElementById('threat-list');
+                threatList.setAttribute('data-locked', 'true'); 
+                const items = threatList.querySelectorAll('.threat-item');
+                
+                items.forEach(item => {
+                    if(item.innerText.includes(selectedSat.userData.name)) {
+                        item.innerHTML = `✅ SATELLITE SAFE (${mType.toUpperCase()})`;
+                        item.style.background = "rgba(0, 255, 65, 0.2)";
+                        item.style.borderLeftColor = "#00ff41";
+                    }
+                });
+                
+                setTimeout(() => { 
+                    if(exhaust) exhaust.visible = false; 
+                    threatList.removeAttribute('data-locked'); 
+                    syncOrbits(); 
+                    
+                    overlay.style.borderColor = 'var(--neon)';
+                    overlay.style.boxShadow = '0 0 20px rgba(0, 255, 65, 0.5)';
+                    
+                    burnText.innerText = "✅ SATELLITE SAVED";
+                    burnText.style.color = 'var(--neon)';
+                    
+                    burnBar.style.background = 'var(--neon)';
+                    burnBar.style.boxShadow = '0 0 10px var(--neon)';
+                    
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                    }, 2000);
+
+                }, 3000); 
+            }
+        };
+    </script>
+</body>
+</html>
